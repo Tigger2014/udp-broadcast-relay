@@ -95,6 +95,9 @@ int main(int argc,char **argv)
 
         /* Spoofing source address of outgoing packets */
         in_addr_t spoof_addr = 0;
+
+        /* Spoofing dest address of outgoing packets */
+        in_addr_t spoof_destaddr = 0;
 	
 	/* Incoming message read via rcvsmsg */
 	struct msghdr rcv_msg;
@@ -162,7 +165,21 @@ int main(int argc,char **argv)
 		argc-=2;
 		argv+=2;
 	};
-
+        
+        if (strcmp(argv[1],"-r") == 0)
+	{
+		/* INADDR_NONE is a valid IP address (-1 = 255.255.255.255),
+		 * so inet_pton() would be a better choice. But in this case it
+		 * does not matter. */
+		spoof_destaddr = inet_addr(argv[2]);
+		if (spoof_destaddr == INADDR_NONE) {
+			fprintf (stderr,"invalid IP address: %s\n", argv[2]);
+			exit(1);
+		}
+		DPRINT ("Outgoing dest IP set to %s\n", argv[2]);
+		argc-=2;
+		argv+=2;
+	};
 	if ((id = atoi(argv[1])) == 0)
 	{
 		fprintf (stderr,"ID argument not valid\n");
@@ -390,7 +407,10 @@ int main(int argc,char **argv)
 			if (ifs[x].ifindex == rcv_ifindex) continue; /* no bounces, please */
 
 			/* Set destination addr ip - port is set already */
-			bcopy(&(ifs[x].dstaddr.sin_addr.s_addr),(gram+16),4);	
+	
+                        if (spoof_destaddr)
+			        ifs[x].dstaddr.sin_addr.s_addr = spoof_destaddr;
+         		bcopy(&(ifs[x].dstaddr.sin_addr.s_addr),(gram+16),4);	
 
 			DPRINT ("Sent to %s:%d on interface %i\n",
 				inet_ntoa(ifs[x].dstaddr.sin_addr), /* dst ip */
